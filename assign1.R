@@ -23,7 +23,7 @@ getACSyr <- function(yearACS) {
                 output = "wide") %>%
     mutate(year = yearACS) %>%
     mutate(MedRent = B25058_001E) %>% 
-    mutate(PopDens = B25026_001E / st_area(geometry)) %>% 
+    mutate(PopDens = B25026_001E / as.numeric(st_area(geometry) / 2.59e+6)) %>% 
     mutate(PctTransit = B08301_010E / B08301_001E) %>% 
     select(!(B25026_001E:B08301_010M))
   
@@ -46,9 +46,9 @@ lehdwac18 <- read_csv("data/mn_wac_S000_JT00_2018.csv") %>%
   summarise(jobs=sum(C000))
 
 tracts09 <- tracts09 %>% left_join(lehdwac08,by="GEOID") %>% 
-  mutate(JobDens = jobs / st_area(geometry))
+  mutate(JobDens = jobs / as.numeric(st_area(geometry) / 2.59e+6))
 tracts19 <- tracts19 %>% left_join(lehdwac18,by="GEOID") %>% 
-  mutate(JobDens = jobs / st_area(geometry))
+  mutate(JobDens = jobs / as.numeric(st_area(geometry) / 2.59e+6))
 
 allTracts <- rbind(tracts09,tracts19)
 
@@ -68,15 +68,14 @@ railBuffers <- rbind(
     dplyr::select(Legend),
   st_union(st_buffer(railStops,2640)) %>% 
     st_sf() %>% 
-    mutate(Legend = "Unionized Buffer")
+    mutate(Legend = "Unionized Buffer"),
+  st_union(st_buffer(railStops,1)) %>% 
+    st_sf() %>% 
+    mutate(Legend = "1-foot Buffer")
 )
 
-# ggplot() +
-#   geom_sf(data=railBuffers) +
-#   geom_sf(data=railStops, show.legend = "point") +
-#   facet_wrap(~Legend)
-
 buffer <- filter(railBuffers, Legend=="Unionized Buffer")
+onefoot <- filter(railBuffers, Legend=="1-foot Buffer")
 
 # select TOD tracts by buffer, centroid method
 
@@ -94,15 +93,6 @@ allTracts.group <-
       mutate(TOD = "Non-TOD")) %>%
   mutate(MedRent.inf = ifelse(year == 2009, MedRent * 1.275, MedRent))
 
-allTracts.rings <-
-  st_join(st_centroid(dplyr::select(allTracts, GEOID, year)), 
-          multipleRingBuffer(st_union(railStops), 47520, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(allTracts, GEOID, MedRent, year), 
-            by=c("GEOID"="GEOID", "year"="year")) %>%
-  st_sf() %>%
-  mutate(distance = distance / 5280) #convert to miles
-
 # ggplot
 
 palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
@@ -119,7 +109,7 @@ ggplot() +
        subtitle = "Minneapolis-St. Paul urbanized area, MN-WI",
        caption = "Note: Green Line did not open until 2014")
 
-# Step 2: Four indicator variables
+# Step 2: Time-space indicator maps
 plotStep2 <- function(indicator, indTitle) {
   ggplot() +
     geom_sf(data=allTracts.group, aes(fill = q5(eval(parse(text=indicator)))), color="transparent") +
@@ -128,30 +118,33 @@ plotStep2 <- function(indicator, indTitle) {
                       labels = qBr(allTracts.group, indicator),
                       name = paste0(indTitle,"\n(Quintile breaks)")) +
     labs(title = paste0(indTitle,", 2009-2019"),
-         subtitle = "Red border = tracts 1/2 mile from light rail stations") + 
+         subtitle = "Red border = 1/2 mile buffer around light rail stations") + 
     mapTheme() + 
     facet_wrap(~year)
 }
 
 plotStep2("PopDens","Population density")
+plotStep2("JobDens","Employment density")
 plotStep2("MedRent.inf", "Median rent")
 plotStep2("PctTransit", "Transit mode share (%)")
-
-# grid.arrange(i1,i2,i3,i4,nrow=2)
 
 # Step 3 & 4: Grouped bar plot and table
 
 allTracts.Summary <- 
   st_drop_geometry(allTracts.group) %>%
   group_by(year, TOD) %>%
-  summarize(Rent = mean(MedRent, na.rm = T),
-            Population_density = mean(PopDens, na.rm = T),
-            Transit_mode_share = mean(PctTransit, na.rm = T))
+  summarize(xPopDens = mean(PopDens, na.rm = T),
+            xJobDens = mean(JobDens, na.rm = T),
+            xMedRent = mean(MedRent.inf, na.rm = T),
+            xPctTransit = mean(PctTransit, na.rm = T)) %>% 
+  gather(Variable, Value, -year, -TOD) %>%
+  mutate(Value = round(Value, 2))
 
 allTracts.Summary %>%
   gather(Variable, Value, -year, -TOD) %>%
   ggplot(aes(year, Value, fill = TOD)) +
   geom_bar(stat = "identity", position = "dodge") +
+
   facet_wrap(~Variable, scales = "free", ncol=2) +
   scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
   # scale_x_discrete("year", labels=c("2009","2019"))
@@ -183,6 +176,3 @@ kable(allTracts.Summary) %>%
 #              border.col = "grey",
 #              border.lwd = 1)  
 # print(gsm2)
-
-
-
