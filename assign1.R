@@ -4,6 +4,8 @@ library(tidytransit)
 library(tigris)
 library(gridExtra)
 library(sf)
+library(tmap)
+library(kableExtra)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -126,7 +128,8 @@ plotStep2("JobDens","Employment density")
 plotStep2("MedRent.inf", "Median rent")
 plotStep2("PctTransit", "Transit mode share (%)")
 
-# Step 3: Time-space bar plots
+# Step 3 & 4: Grouped bar plot and table
+
 allTracts.Summary <- 
   st_drop_geometry(allTracts.group) %>%
   group_by(year, TOD) %>%
@@ -141,21 +144,35 @@ allTracts.Summary %>%
   gather(Variable, Value, -year, -TOD) %>%
   ggplot(aes(year, Value, fill = TOD)) +
   geom_bar(stat = "identity", position = "dodge") +
-  facet_wrap(~Variable, scales = "free", ncol=5) +
+
+  facet_wrap(~Variable, scales = "free", ncol=2) +
   scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
-  labs(title = "Indicator differences across time and space") +
-  plotTheme() + theme(legend.position="bottom")
+  # scale_x_discrete("year", labels=c("2009","2019"))
+  labs(title = "Question3: Indicator differences across time and space")
 
-# Step 4: table
+kable(allTracts.Summary) %>%
+  kable_styling() %>%
+  footnote(general_title = "\n",
+           general = "Table 1: Question 4")
 
-# Step 5: 
+# Step 5: graduated symbol maps
 
-# Step 6: geom_line multipleRingBuffer
-allTracts.rings <-
-  st_join(st_centroid(dplyr::select(allTracts, GEOID, year)), 
-          multipleRingBuffer(st_union(railStops), 26400, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(allTracts, GEOID, MedRent, year), 
-            by=c("GEOID"="GEOID", "year"="year")) %>%
-  st_sf() %>%
-  mutate(distance = distance / 5280) #convert to miles
+# allTracts.buffer <- allTracts.group %>%
+#                           filter(TOD == "TOD")
+# allTracts_sf <- st_as_sf(allTracts.buffer, 
+#                          coords = geometry,
+#                          crs= 3414)
+# 
+# tmap_mode("view")
+# gsm1 <- tm_shape(allTracts_sf)+
+#   tm_bubbles(col = "red",
+#              size = "TotalPop",
+#              border.col = "black",
+#              border.lwd = 1)
+# print(gsm1)
+# gsm2 <- tm_shape(allTracts_sf)+
+#   tm_bubbles(col = "blue",
+#              size = "MedRent.inf",
+#              border.col = "grey",
+#              border.lwd = 1)  
+# print(gsm2)
