@@ -23,6 +23,7 @@ getACSyr <- function(yearACS) {
                 output = "wide") %>%
     mutate(year = yearACS) %>%
     mutate(MedRent = B25058_001E) %>% 
+    mutate(Pop = B25026_001E) %>% 
     mutate(PopDens = B25026_001E / st_area(geometry)) %>% 
     mutate(PctTransit = B08301_010E / B08301_001E) %>% 
     select(!(B25026_001E:B08301_010M))
@@ -164,25 +165,28 @@ kable(allTracts.Summary) %>%
 
 # Step 5: graduated symbol maps
 
-# allTracts.buffer <- allTracts.group %>%
-#                           filter(TOD == "TOD")
-# allTracts_sf <- st_as_sf(allTracts.buffer, 
-#                          coords = geometry,
-#                          crs= 3414)
-# 
-# tmap_mode("view")
-# gsm1 <- tm_shape(allTracts_sf)+
-#   tm_bubbles(col = "red",
-#              size = "TotalPop",
-#              border.col = "black",
-#              border.lwd = 1)
-# print(gsm1)
-# gsm2 <- tm_shape(allTracts_sf)+
-#   tm_bubbles(col = "blue",
-#              size = "MedRent.inf",
-#              border.col = "grey",
-#              border.lwd = 1)  
-# print(gsm2)
+allTracts.buffer <- allTracts.group %>%
+                          filter(TOD == "TOD")
+allTracts_sf <- st_as_sf(allTracts.buffer,
+                         coords = geometry,
+                         crs= 3414)
+
+tmap_mode(mode = c("plot", "view"))
+gsm1 <-
+  tm_shape(allTracts_sf)+
+  tm_polygons("Pop", style = "quantile", n = 5)+
+  tm_bubbles(col = "red",
+             size = "Pop",
+             border.col = "black",
+             border.lwd = 1)
+print(gsm1)
+gsm2 <- tm_shape(allTracts_sf)+
+  tm_polygons("MedRent", style = "quantile", n = 5)+
+  tm_bubbles(col = "blue",
+             size = "MedRent",
+             border.col = "black",
+             border.lwd = 1)
+print(gsm2)
 
 
 
