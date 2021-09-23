@@ -4,6 +4,8 @@ library(tidytransit)
 library(tigris)
 library(gridExtra)
 library(sf)
+library(tmap)
+library(kableExtra)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -136,3 +138,51 @@ plotStep2("MedRent.inf", "Median rent")
 plotStep2("PctTransit", "Transit mode share (%)")
 
 # grid.arrange(i1,i2,i3,i4,nrow=2)
+
+# Step 3 & 4: Grouped bar plot and table
+
+allTracts.Summary <- 
+  st_drop_geometry(allTracts.group) %>%
+  group_by(year, TOD) %>%
+  summarize(Rent = mean(MedRent, na.rm = T),
+            Population_density = mean(PopDens, na.rm = T),
+            Transit_mode_share = mean(PctTransit, na.rm = T))
+
+allTracts.Summary %>%
+  gather(Variable, Value, -year, -TOD) %>%
+  ggplot(aes(year, Value, fill = TOD)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~Variable, scales = "free", ncol=2) +
+  scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
+  # scale_x_discrete("year", labels=c("2009","2019"))
+  labs(title = "Question3: Indicator differences across time and space")
+
+kable(allTracts.Summary) %>%
+  kable_styling() %>%
+  footnote(general_title = "\n",
+           general = "Table 1: Question 4")
+
+# Step 5: graduated symbol maps
+
+# allTracts.buffer <- allTracts.group %>%
+#                           filter(TOD == "TOD")
+# allTracts_sf <- st_as_sf(allTracts.buffer, 
+#                          coords = geometry,
+#                          crs= 3414)
+# 
+# tmap_mode("view")
+# gsm1 <- tm_shape(allTracts_sf)+
+#   tm_bubbles(col = "red",
+#              size = "TotalPop",
+#              border.col = "black",
+#              border.lwd = 1)
+# print(gsm1)
+# gsm2 <- tm_shape(allTracts_sf)+
+#   tm_bubbles(col = "blue",
+#              size = "MedRent.inf",
+#              border.col = "grey",
+#              border.lwd = 1)  
+# print(gsm2)
+
+
+
