@@ -1,6 +1,10 @@
 ---
-title: "Assignment 1"
-author: "Sisun Cheng, Benjamin She, Xiaoyi Wu"
+title: "MUSA 508 Assignment 1"
+subtitle: "Indicators for Transit-Oriented Development<br>Analysis for Minneapolis-St. Paul, MN-WI Urbanized Area"
+author:
+  - name: "Sisun Cheng"
+  - name: "Benjamin She"
+  - name: "Xiaoyi Wu"
 date: "9/23/2021"
 output:
   html_document:
@@ -30,6 +34,7 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 ```
 # Wrangling data
 ## First get boundary of Minneapolis-St Paul urbanized area
+This uses the `tigris` package and filters for UA code `57628`
 ```{r, results='hide', warning = FALSE, message = FALSE}
 twincities <- urban_areas(cb=TRUE) %>%
   filter(UACE10 == "57628") %>% 
@@ -61,7 +66,7 @@ getACSyr <- function(yearACS) {
 tracts09 <- getACSyr(2009)
 tracts19 <- getACSyr(2019)
 ```
-Here we wrangle in LEHD Workforce Area Characteristics, which has job counts by block group. Then summarize by tract
+Here we wrangle in LEHD Workforce Area Characteristics, which has job counts by block group. Then summarize by tract.
 ## Wrangle in LEHD WAC
 ```{r, warning = FALSE, message = FALSE}
 lehdwac08 <- read_csv("data/mn_wac_S000_JT00_2008.csv") %>% 
@@ -87,6 +92,9 @@ allTracts <- rbind(tracts09,tracts19)
 ```
 
 ## Wrangle rail stops and centroid buffers
+The Twin Cities' transit agency is Metro Transit, which operates two light rail lines: the Blue Line and Green Line. The GTFS package here is a snapshot taken from the [Transitland](https://transit.land) GTFS repository, with the Blue and Green Lines as route 901 and 902.
+
+Four buffers were created from station point data: one half-mile buffer for each station, a unionized shapefile of the 1/2 mile buffers, a quarter-mile buffer for finer analysis, and a 1-foot buffer to utilize in `multipleRingBuffer()` function.
 ```{r, warning = FALSE, message = FALSE}
 metrotransit <- read_gtfs("data/gtfs.zip")
 
@@ -134,13 +142,19 @@ allTracts.group <-
   mutate(MedRent = ifelse(year == 2009, MedRent * 1.275, MedRent))
 ```
 
-# Outputs begin here
+# Outputs of TOD indicators
+Five indicators were included in the analysis: population density, employment density by workplace, median rent, and percent of commuters that took transit to work, or its mode share.
+
+Population density and employment density were summarized on the tract level and divided by the geometric area of each tract in square miles. Transit mode share was calculated by dividing the number of estimated transit riders by estimated total commuters, all in the ACS 5-year estimates.
+
+Employment data was found in the Census Bureau's Longitudinal Employer-Household Dynamics datasets, for workplace area characteristics.
 
 ```{r set up palette for quintiles}
 palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
 ```
 
 ## Define TOD and non-TOD tracts
+Here we show what tracts in the urbanized area are considered as classified as a TOD-containing tract. The extent of the Blue and Green Lines are shown as well. Both lines originate in downtown Minneapolis; the Blue Line goes south to the airport, while the Green Line travels in a denser corridor to St. Paul. 
 ```{r Define TOD and non-TOD tracts}
 ggplot() +
   geom_sf(data=allTracts.group, aes(fill = TOD), color="transparent") +
@@ -172,7 +186,25 @@ plotStep2 <- function(indicator, indTitle, units) {
     mapTheme() + 
     facet_wrap(~year)
 }
+```
 
+The map and data of population density suggest that the urbanized area did not have significant population density increases from 2009 to 2019. In Non-TOD, there is seldom changes in population density. As for TOD, there is 15% increase in population density.
+``` {r Population density map}
+plotStep2("PopDens","Population density","(per sq. mi)")
+```
+
+The map and data of employment density suggest a difference in employment density at NON-TOD and TOD. Areas close to transit increased employment by around 40%; however, there was significant missing data in 2009 that could have affected this. The density in non-transit areas increased by 13%. 
+``` {r Employment density map}
+plotStep2("JobDens","Employment density","(per sq. mi)")
+```
+
+The map and data of median rent suggests the rent in most areas didn’t change significantly. But the map suggests that the rent at the northeastern inter section (which is downtown Minneapolis) between blue line and green line has increased by 200 dollars.
+``` {r Median rent map}
+plotStep2("MedRent", "Median rent","($2019)")
+```
+
+The map and data of transit mode share suggest people live in TOD has increased by 1% of their transit mode share percent. However, people in non-transit area didn’t have any changes in their transit mode sharing.
+``` {r Percent transit share map}
 plotStep2("PopDens","Population density","(per sq. mi)")
 plotStep2("JobDens","Employment density","(per sq. mi)")
 plotStep2("MedRent", "Median rent","($2019)")
@@ -192,7 +224,7 @@ allTracts.Summary <-
 
 ggplot(allTracts.Summary, aes(factor(year), Value, fill = TOD)) +
   geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
+  scale_fill_manual(name = "Census tract type", values = c("#bae4bc", "#0868ac")) +
   facet_wrap(~Variable, scales = "free", ncol=2) +
   labs(title = "Comparing TOD and non-TOD Census tracts, 2009 and 2019",
        subtitle = "Minneapolis-St. Paul, MN-WI Urbanized Area") +
@@ -227,6 +259,7 @@ allTracts.Summary %>%
 ```
 
 ## Step 5: graduated symbol maps
+The graduated symbol map of population shows that there is a larger population near the junction of two rail lines, and more people live near the Green Line than the Blue Line. In contrast, median rent within 0.5 mile of Blue Line stations is higher than that of Green Line. The result shows that rent and population are inversely related in the study region.
 ```{r graduated symbol maps}
 stationStat <- st_join(filter(railBuffers,Legend=="Buffer"),
                        st_centroid(filter(allTracts,year==2019))) %>% 
@@ -238,7 +271,7 @@ stationStat <- st_join(filter(railBuffers,Legend=="Buffer"),
 ggplot() +
   geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
   geom_sf(data=stationStat, aes(geometry=geometry, size=Pop, color=Pop), alpha=0.7) +
-  scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
+  scale_size_binned() + scale_color_gradient(low="#bae4bc",high="#0868ac") +
   guides(size=guide_legend(), color=guide_legend()) + mapTheme() +
   labs(title="Light rail stations by total population within 1/2 mile (2019)",
        subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area")
@@ -246,17 +279,26 @@ ggplot() +
 ggplot() +
   geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
   geom_sf(data=stationStat, aes(geometry=geometry, size=Rent, color=Rent), alpha=0.7) +
-  scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
+  scale_size_binned() + scale_color_gradient(low="#bae4bc",high="#0868ac") +
   guides(size=guide_legend(), color=guide_legend()) + mapTheme() + 
   labs(title="Light rail stations by median rent within 1/2 mile (2019)",
        subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area")
 ```
 
 ## Step 6: geom_line & multiple ring buffer
+The line chart of the year 2019 shows the trend that the mean rent increases with distance within 3.5 miles and goes down with distance outside the radius of 3.5 miles, while the mean rent continues to increase with distance according to the plot of 2009. This indicates the peak of housing rent moves closer to rail stations during these years. The plots of 2009 and 2019 share the same characteristic that the rent near the rail stops is pretty low, probably due to the noises and insecurity. The lines are really new, maybe
 ```{r geom_line & multiple ring buffer}
+ggplot() +
+  geom_sf(data=multipleRingBuffer(onefoot, 50000, 2640)) +
+  geom_sf(data=twincities,fill="transparent",color="black",size=1) +
+  geom_sf(data=railStops,size=1) +
+  mapTheme() +
+  labs(title="Half-mile buffers around light rail stations",
+       subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area")
+
 allTracts.rings <-
   st_join(st_centroid(dplyr::select(allTracts, GEOID, year)), 
-          multipleRingBuffer(onefoot, 32000, 2640)) %>%
+          multipleRingBuffer(onefoot, 50000, 2640)) %>%
   st_drop_geometry() %>%
   left_join(select(allTracts, GEOID, MedRent, year), 
             by=c("GEOID"="GEOID", "year"="year")) %>%
@@ -281,6 +323,8 @@ ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
 
 ## Step 7: 311 data for Minneapolis
 311 data was only available for Minneapolis. Crime data exists for St. Paul but was not geocoded, and only had block address data; geocoding would take too long.
+
+The plot shows a higher 311 requests density in the central region of Minneapolis, approximately the junction of two rail lines. However, we can hardly draw a conclusion of any relationship between TOD and the density of 311 requests from the given data.
 ```{R 311 data}
 data311 <- read_csv("data/Public_311_2019.csv") %>% 
   st_as_sf(coords = c('Lon', 'Lat'), crs = 4326) %>% 
