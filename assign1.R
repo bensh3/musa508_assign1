@@ -4,7 +4,6 @@ library(tidytransit)
 library(tigris)
 library(gridExtra)
 library(sf)
-library(tmap)
 library(kableExtra)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
@@ -24,7 +23,7 @@ getACSyr <- function(yearACS) {
     mutate(year = yearACS) %>%
     mutate(MedRent = B25058_001E) %>% 
     mutate(PopDens = B25026_001E / as.numeric(st_area(geometry) / 2.59e+6)) %>% 
-    mutate(PctTransit = B08301_010E / B08301_001E) %>% 
+    mutate(PctTransit = B08301_010E / B08301_001E * 100) %>% 
     select(!(B25026_001E:B08301_010M))
   
   st_join(temp, twincities, join=st_within, left=FALSE) %>% 
@@ -34,6 +33,8 @@ getACSyr <- function(yearACS) {
 tracts09 <- getACSyr(2009)
 tracts19 <- getACSyr(2019)
 
+# wrangle in LEHD Workforce Area Characteristics,
+# which has job counts by block group. Summarize by tract
 lehdwac08 <- read_csv("data/mn_wac_S000_JT00_2008.csv") %>% 
   select(w_geocode,C000) %>%
   mutate(GEOID = str_sub(w_geocode,1,11)) %>%
@@ -54,7 +55,7 @@ allTracts <- rbind(tracts09,tracts19)
 
 # Rail stops and centroid buffers
 
-metrotransit <- read_gtfs("https://svc.metrotransit.org/mtgtfs/gtfs.zip")
+metrotransit <- read_gtfs("data/gtfs.zip")
 
 service_id <- filter(metrotransit$calendar, monday==1) %>% pull(service_id)
 route_id <- filter(metrotransit$routes, route_id==c('901','902')) %>% pull(route_id)
@@ -91,9 +92,9 @@ allTracts.group <-
       left_join(allTracts) %>%
       st_sf() %>%
       mutate(TOD = "Non-TOD")) %>%
-  mutate(MedRent.inf = ifelse(year == 2009, MedRent * 1.275, MedRent))
+  mutate(MedRent = ifelse(year == 2009, MedRent * 1.275, MedRent))
 
-# ggplot
+# outputs begin here
 
 palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
 
@@ -102,31 +103,34 @@ ggplot() +
   geom_sf(data=allTracts.group, aes(fill = TOD), color="transparent") +
   geom_sf(data=railLines, aes(color = route_id),size=1) +
   facet_wrap(~year) +
-  scale_color_manual(values = c('blue', 'darkgreen'),
+  scale_fill_manual(name = "Census tract type",
+                    values = c("#bae4bc", "#0868ac")) +
+  scale_color_manual(name = "Light rail line",
+                     values = c('blue', 'green'),
                      labels = c('Blue Line', 'Green Line')) + 
   mapTheme() +
   labs(title = "Census tracts by transit-oriented development classification",
-       subtitle = "Minneapolis-St. Paul urbanized area, MN-WI",
+       subtitle = "Minneapolis-St. Paul, MN-WI Urbanized Area",
        caption = "Note: Green Line did not open until 2014")
 
 # Step 2: Time-space indicator maps
-plotStep2 <- function(indicator, indTitle) {
+plotStep2 <- function(indicator, indTitle, units) {
   ggplot() +
     geom_sf(data=allTracts.group, aes(fill = q5(eval(parse(text=indicator)))), color="transparent") +
     geom_sf(data=buffer, color = "red", fill = "transparent") +
     scale_fill_manual(values = palette5,
                       labels = qBr(allTracts.group, indicator),
-                      name = paste0(indTitle,"\n(Quintile breaks)")) +
+                      name = paste0(indTitle,"\n",units,"\n(Quintile breaks)")) +
     labs(title = paste0(indTitle,", 2009-2019"),
          subtitle = "Red border = 1/2 mile buffer around light rail stations") + 
     mapTheme() + 
     facet_wrap(~year)
 }
 
-plotStep2("PopDens","Population density")
-plotStep2("JobDens","Employment density")
-plotStep2("MedRent.inf", "Median rent")
-plotStep2("PctTransit", "Transit mode share (%)")
+plotStep2("PopDens","Population density","(per sq. mi)")
+plotStep2("JobDens","Employment density","(per sq. mi)")
+plotStep2("MedRent", "Median rent","($2019)")
+plotStep2("PctTransit", "Transit mode share","(%)")
 
 # Step 3 & 4: Grouped bar plot and table
 
@@ -135,41 +139,25 @@ allTracts.Summary <-
   group_by(year, TOD) %>%
   summarize(xPopDens = mean(PopDens, na.rm = T),
             xJobDens = mean(JobDens, na.rm = T),
-            xMedRent = mean(MedRent.inf, na.rm = T),
+            xMedRent = mean(MedRent, na.rm = T),
             xPctTransit = mean(PctTransit, na.rm = T)) %>% 
-  gather(Variable, Value, -year, -TOD) %>%
-  mutate(Value = round(Value, 2))
+  gather(Variable, Value, -year, -TOD)
 
-ggplot(allTracts.Summary, aes(year, Value, fill = TOD)) +
+ggplot(allTracts.Summary, aes(factor(year), Value, fill = TOD)) +
   geom_bar(stat = "identity", position = "dodge") +
-  facet_wrap(~Variable, scales = "free", ncol=2) +
   scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
-  # scale_x_discrete("year", labels=c("2009","2019"))
-  labs(title = "Question3: Indicator differences across time and space")
+  facet_wrap(~Variable, scales = "free", ncol=2) +
+  labs(title = "Comparing TOD and non-TOD tracts, 2009 and 2019",
+       subtitle = "Minneapolis-St. Paul, MN-WI Urbanized Area") +
+  plotTheme() + theme(legend.position = "bottom",
+                      axis.title = element_blank())
 
-kable(allTracts.Summary) %>%
+allTracts.Summary %>%
+  unite(year.TOD, year, TOD, sep = ": ", remove = T) %>%
+  spread(year.TOD, Value) %>%
+  kable() %>%
   kable_styling() %>%
   footnote(general_title = "\n",
-           general = "Table 1: Question 4")
+           general = "Table 1.3")
 
 # Step 5: graduated symbol maps
-
-# allTracts.buffer <- allTracts.group %>%
-#                           filter(TOD == "TOD")
-# allTracts_sf <- st_as_sf(allTracts.buffer, 
-#                          coords = geometry,
-#                          crs= 3414)
-# 
-# tmap_mode("view")
-# gsm1 <- tm_shape(allTracts_sf)+
-#   tm_bubbles(col = "red",
-#              size = "TotalPop",
-#              border.col = "black",
-#              border.lwd = 1)
-# print(gsm1)
-# gsm2 <- tm_shape(allTracts_sf)+
-#   tm_bubbles(col = "blue",
-#              size = "MedRent.inf",
-#              border.col = "grey",
-#              border.lwd = 1)  
-# print(gsm2)
