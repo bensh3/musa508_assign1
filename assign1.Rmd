@@ -188,26 +188,27 @@ plotStep2 <- function(indicator, indTitle, units) {
 }
 ```
 
+### Population density map
 The map and data of population density suggest that the urbanized area did not have significant population density increases from 2009 to 2019. In Non-TOD, there is seldom changes in population density. As for TOD, there is 15% increase in population density.
 ``` {r Population density map}
 plotStep2("PopDens","Population density","(per sq. mi)")
 ```
 
+### Employment density map
 The map and data of employment density suggest a difference in employment density at NON-TOD and TOD. Areas close to transit increased employment by around 40%; however, there was significant missing data in 2009 that could have affected this. The density in non-transit areas increased by 13%. 
 ``` {r Employment density map}
 plotStep2("JobDens","Employment density","(per sq. mi)")
 ```
 
+### Median rent map
 The map and data of median rent suggests the rent in most areas didn’t change significantly. But the map suggests that the rent at the northeastern inter section (which is downtown Minneapolis) between blue line and green line has increased by 200 dollars.
 ``` {r Median rent map}
 plotStep2("MedRent", "Median rent","($2019)")
 ```
 
+### Percent transit share map
 The map and data of transit mode share suggest people live in TOD has increased by 1% of their transit mode share percent. However, people in non-transit area didn’t have any changes in their transit mode sharing.
 ``` {r Percent transit share map}
-plotStep2("PopDens","Population density","(per sq. mi)")
-plotStep2("JobDens","Employment density","(per sq. mi)")
-plotStep2("MedRent", "Median rent","($2019)")
 plotStep2("PctTransit", "Transit mode share","(%)")
 ```
 
