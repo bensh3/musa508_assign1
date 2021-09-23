@@ -140,11 +140,8 @@ allTracts.Summary <-
   gather(Variable, Value, -year, -TOD) %>%
   mutate(Value = round(Value, 2))
 
-allTracts.Summary %>%
-  gather(Variable, Value, -year, -TOD) %>%
-  ggplot(aes(year, Value, fill = TOD)) +
+ggplot(allTracts.Summary, aes(year, Value, fill = TOD)) +
   geom_bar(stat = "identity", position = "dodge") +
-
   facet_wrap(~Variable, scales = "free", ncol=2) +
   scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
   # scale_x_discrete("year", labels=c("2009","2019"))
