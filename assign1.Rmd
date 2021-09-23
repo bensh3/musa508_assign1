@@ -158,7 +158,8 @@ plotStep2 <- function(indicator, indTitle, units) {
                       labels = qBr(allTracts.group, indicator),
                       name = paste0(indTitle,"\n",units,"\n(Quintile breaks)")) +
     labs(title = paste0(indTitle,", 2009-2019"),
-         subtitle = "Red border = 1/2 mile buffer around light rail stations") + 
+         subtitle = "Minneapolis-St. Paul, MN-WI Urbanized Area",
+         caption = "Red border = 1/2 mile buffer around light rail stations") + 
     mapTheme() + 
     facet_wrap(~year)
 }
@@ -227,7 +228,7 @@ stationStat <- st_join(filter(railBuffers,Legend=="Buffer"),
 
 ggplot() +
   geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
-  geom_sf(data=stationStat, aes(geometry=geometry, size=Pop, color=Pop)) +
+  geom_sf(data=stationStat, aes(geometry=geometry, size=Pop, color=Pop), alpha=0.7) +
   scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
   guides(size=guide_legend(), color=guide_legend()) + mapTheme() +
   labs(title="Light rail stations by total population within 1/2 mile (2019)",
@@ -235,7 +236,7 @@ ggplot() +
 
 ggplot() +
   geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
-  geom_sf(data=stationStat, aes(geometry=geometry, size=Rent, color=Rent)) +
+  geom_sf(data=stationStat, aes(geometry=geometry, size=Rent, color=Rent), alpha=0.7) +
   scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
   guides(size=guide_legend(), color=guide_legend()) + mapTheme() + 
   labs(title="Light rail stations by median rent within 1/2 mile (2019)",
@@ -268,3 +269,6 @@ ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
        x="Radial distance from station (miles)",
        y="Average rent ($)")
 ```
+
+# Step 7: Crime and 311 data
+
