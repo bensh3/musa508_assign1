@@ -20,6 +20,7 @@ library(tidytransit)
 library(tigris)
 library(sf)
 library(kableExtra)
+library(gt)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
@@ -173,10 +174,10 @@ plotStep2("PctTransit", "Transit mode share","(%)")
 allTracts.Summary <- 
   st_drop_geometry(allTracts.group) %>%
   group_by(year, TOD) %>%
-  summarize(xPopDens = mean(PopDens, na.rm = T),
-            xJobDens = mean(JobDens, na.rm = T),
-            xMedRent = mean(MedRent, na.rm = T),
-            xPctTransit = mean(PctTransit, na.rm = T)) %>% 
+  summarize(Pop_Density = mean(PopDens, na.rm = T),
+            Job_Density = mean(JobDens, na.rm = T),
+            Median_Rent = mean(MedRent, na.rm = T),
+            Pct_Transit = mean(PctTransit, na.rm = T)) %>% 
   gather(Variable, Value, -year, -TOD)
 
 ggplot(allTracts.Summary, aes(factor(year), Value, fill = TOD)) +
@@ -188,13 +189,31 @@ ggplot(allTracts.Summary, aes(factor(year), Value, fill = TOD)) +
   plotTheme() + theme(legend.position = "bottom",
                       axis.title = element_blank())
 
+# table using kable
 allTracts.Summary %>%
   unite(year.TOD, year, TOD, sep = ": ", remove = T) %>%
-  spread(year.TOD, Value) %>%
-  kable() %>%
-  kable_styling() %>%
-  footnote(general_title = "Comparing TOD and non-TOD Census tracts, 2009 and 2019",
+  mutate(Value = round(Value, 2)) %>% 
+  spread(year.TOD, Value) %>% 
+  kable(caption = "Comparing TOD and non-TOD Census tracts, 2009 and 2019") %>%
+  kable_material("striped", full_width = F, html_font = "Helvetica") %>%
+  footnote(footnote_as_chunk = T,
+           general_title = "",
            general = "Minneapolis-St. Paul, MN-WI Urbanized Area")
+
+# table using gt
+allTracts.Summary %>% 
+  unite(year.TOD, year, TOD, sep = ": ", remove = T) %>%
+  mutate(Value = round(Value, 2)) %>% 
+  spread(year.TOD, Value) %>% 
+  gt(rowname_col = "Variable") %>% 
+  tab_spanner_delim(delim = ':') %>%
+  tab_header(title = "Comparing TOD and non-TOD Census tracts, 2009 and 2019",
+             subtitle = "Minneapolis-St. Paul, MN-WI Urbanized Area") %>% 
+  opt_align_table_header(align="left") %>% 
+  tab_style(style = list(cell_text(align = "right")),
+            locations = cells_stub(rows = TRUE)) %>%
+  tab_options(table.font.names = 'Helvetica',
+              stub.font.weight = 'bold')
 ```
 
 # Step 5: graduated symbol maps
@@ -210,15 +229,17 @@ ggplot() +
   geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
   geom_sf(data=stationStat, aes(geometry=geometry, size=Pop, color=Pop)) +
   scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
-  guides(size=guide_legend(), color=guide_legend()) +
-  labs(title="Light rail stations by total population within 1/2 mile (2019)")
+  guides(size=guide_legend(), color=guide_legend()) + mapTheme() +
+  labs(title="Light rail stations by total population within 1/2 mile (2019)",
+       subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area")
 
 ggplot() +
   geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
   geom_sf(data=stationStat, aes(geometry=geometry, size=Rent, color=Rent)) +
   scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
-  guides(size=guide_legend(), color=guide_legend()) +
-  labs(title="Light rail stations by median rent within 1/2 mile (2019)")
+  guides(size=guide_legend(), color=guide_legend()) + mapTheme() + 
+  labs(title="Light rail stations by median rent within 1/2 mile (2019)",
+       subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area")
 ```
 
 # Step 6: geom_line & multiple ring buffer
@@ -243,7 +264,7 @@ ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
   scale_x_continuous(breaks=seq(0,6,by=1)) +
   plotTheme() +
   labs(title="Rent as a function of distance from light rail stations",
-       subtitle="Census tracts, Minneapolis-St. Paul, MN-WI Urbanized Area",
+       subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area",
        x="Radial distance from station (miles)",
        y="Average rent ($)")
 ```
