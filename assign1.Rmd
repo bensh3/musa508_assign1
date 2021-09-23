@@ -1,19 +1,23 @@
 ---
 title: "Assignment 1"
-author: "Sisun Cheng", "Benjamin She", "Xiaoyi Wu"
+author: "Sisun Cheng, Benjamin She, Xiaoyi Wu"
 date: "9/23/2021"
-output: github_document
+output:
+  html_document:
+      toc: true
+      toc_float: true
+always_allow_html: true
 editor_options: 
   markdown: 
     wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.path='Figs/',
+knitr::opts_chunk$set(fig.path='figs/',
                       echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-```{r}
+```{r, warning = FALSE, message = FALSE}
 library(tidyverse)
 library(tidycensus)
 library(tidytransit)
@@ -24,16 +28,17 @@ library(gt)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
-
+# Wrangling data
 ## First get boundary of Minneapolis-St Paul urbanized area
-```{r}
+```{r, results='hide', warning = FALSE, message = FALSE}
 twincities <- urban_areas(cb=TRUE) %>%
   filter(UACE10 == "57628") %>% 
   select(geometry)
 ```
 
 ## Then get ACS tract data for whole state and intersect by boundary
-```{r}
+Instead of merely displaying population, normalizing population by tract area (in square miles) will accurately visualize choropleth data
+```{r, results='hide', warning = FALSE, message = FALSE}
 getACSyr <- function(yearACS) {
   temp<-get_acs(geography = 'tract',
                 year = yearACS,
@@ -56,9 +61,9 @@ getACSyr <- function(yearACS) {
 tracts09 <- getACSyr(2009)
 tracts19 <- getACSyr(2019)
 ```
-
-# wrangle in LEHD Workforce Area Characteristics, which has job counts by block group. Summarize by tract
-```{r}
+Here we wrangle in LEHD Workforce Area Characteristics, which has job counts by block group. Then summarize by tract
+## Wrangle in LEHD WAC
+```{r, warning = FALSE, message = FALSE}
 lehdwac08 <- read_csv("data/mn_wac_S000_JT00_2008.csv") %>% 
   select(w_geocode,C000) %>%
   mutate(GEOID = str_sub(w_geocode,1,11)) %>%
@@ -71,8 +76,8 @@ lehdwac18 <- read_csv("data/mn_wac_S000_JT00_2018.csv") %>%
   summarise(jobs=sum(C000))
 ```
 
-### like population, normalize jobs by square mile area
-```{r}
+### like population, the choropleth should normalize jobs by square mile area
+```{r, warning = FALSE, message = FALSE}
 tracts09 <- tracts09 %>% left_join(lehdwac08,by="GEOID") %>% 
   mutate(JobDens = jobs / as.numeric(st_area(geometry) / 2.59e+6))
 tracts19 <- tracts19 %>% left_join(lehdwac18,by="GEOID") %>% 
@@ -81,8 +86,8 @@ tracts19 <- tracts19 %>% left_join(lehdwac18,by="GEOID") %>%
 allTracts <- rbind(tracts09,tracts19)
 ```
 
-# Rail stops and centroid buffers
-```{r}
+## Wrangle rail stops and centroid buffers
+```{r, warning = FALSE, message = FALSE}
 metrotransit <- read_gtfs("data/gtfs.zip")
 
 service_id <- filter(metrotransit$calendar, monday==1) %>% pull(service_id)
@@ -112,8 +117,8 @@ quarter <- filter(railBuffers,Legend=="Quarter-mile Buffer")
 onefoot <- filter(railBuffers, Legend=="1-foot Buffer")
 ```
 
-# select TOD tracts by buffer, centroid method
-```{r}
+## Select TOD tracts by buffer using centroid method
+```{r, warning = FALSE, message = FALSE}
 allTracts.group <- 
   rbind(
     st_centroid(allTracts)[buffer,] %>%
@@ -131,12 +136,12 @@ allTracts.group <-
 
 # Outputs begin here
 
-```{r}
+```{r set up palette for quintiles}
 palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
 ```
 
-# Define TOD and non-TOD tracts
-```{r}
+## Define TOD and non-TOD tracts
+```{r Define TOD and non-TOD tracts}
 ggplot() +
   geom_sf(data=allTracts.group, aes(fill = TOD), color="transparent") +
   geom_sf(data=railLines, aes(color = route_id),size=1) +
@@ -152,8 +157,8 @@ ggplot() +
        caption = "Note: Green Line did not open until 2014")
 ```
 
-# Step 2: Time-space indicator maps
-```{r}
+## Step 2: Time-space indicator maps
+```{r Time-space indicator maps}
 plotStep2 <- function(indicator, indTitle, units) {
   ggplot() +
     geom_sf(data=allTracts.group, aes(fill = q5(eval(parse(text=indicator)))), color="transparent") +
@@ -174,8 +179,8 @@ plotStep2("MedRent", "Median rent","($2019)")
 plotStep2("PctTransit", "Transit mode share","(%)")
 ```
 
-# Step 3 & 4: Grouped bar plot and table
-```{r}
+## Step 3 & 4: Grouped bar plot and table
+```{r Grouped bar plot and table}
 allTracts.Summary <- 
   st_drop_geometry(allTracts.group) %>%
   group_by(year, TOD) %>%
@@ -221,8 +226,8 @@ allTracts.Summary %>%
               stub.font.weight = 'bold')
 ```
 
-# Step 5: graduated symbol maps
-```{r}
+## Step 5: graduated symbol maps
+```{r graduated symbol maps}
 stationStat <- st_join(filter(railBuffers,Legend=="Buffer"),
                        st_centroid(filter(allTracts,year==2019))) %>% 
   st_drop_geometry() %>% 
@@ -247,8 +252,8 @@ ggplot() +
        subtitle="Minneapolis-St. Paul, MN-WI Urbanized Area")
 ```
 
-# Step 6: geom_line & multiple ring buffer
-```{r}
+## Step 6: geom_line & multiple ring buffer
+```{r geom_line & multiple ring buffer}
 allTracts.rings <-
   st_join(st_centroid(dplyr::select(allTracts, GEOID, year)), 
           multipleRingBuffer(onefoot, 32000, 2640)) %>%
@@ -274,8 +279,9 @@ ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
        y="Average rent ($)")
 ```
 
-# Step 7: Crime and 311 data
-```{R}
+## Step 7: 311 data for Minneapolis
+311 data was only available for Minneapolis. Crime data exists for St. Paul but was not geocoded, and only had block address data; geocoding would take too long.
+```{R 311 data}
 data311 <- read_csv("data/Public_311_2019.csv") %>% 
   st_as_sf(coords = c('Lon', 'Lat'), crs = 4326) %>% 
   st_transform(st_crs(allTracts))
