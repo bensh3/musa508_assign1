@@ -9,7 +9,8 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.path='Figs/',
+                      echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 ```{r}
@@ -22,8 +23,9 @@ library(kableExtra)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
-```{r}
+
 ## First get boundary of Minneapolis-St Paul urbanized area
+```{r}
 twincities <- urban_areas(cb=TRUE) %>%
   filter(UACE10 == "57628") %>% 
   select(geometry)
@@ -181,7 +183,7 @@ ggplot(allTracts.Summary, aes(factor(year), Value, fill = TOD)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
   facet_wrap(~Variable, scales = "free", ncol=2) +
-  labs(title = "Comparing TOD and non-TOD tracts, 2009 and 2019",
+  labs(title = "Comparing TOD and non-TOD Census tracts, 2009 and 2019",
        subtitle = "Minneapolis-St. Paul, MN-WI Urbanized Area") +
   plotTheme() + theme(legend.position = "bottom",
                       axis.title = element_blank())
@@ -191,8 +193,8 @@ allTracts.Summary %>%
   spread(year.TOD, Value) %>%
   kable() %>%
   kable_styling() %>%
-  footnote(general_title = "\n",
-           general = "Table 1.3")
+  footnote(general_title = "Comparing TOD and non-TOD Census tracts, 2009 and 2019",
+           general = "Minneapolis-St. Paul, MN-WI Urbanized Area")
 ```
 
 # Step 5: graduated symbol maps
