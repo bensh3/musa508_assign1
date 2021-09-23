@@ -2,7 +2,6 @@ library(tidyverse)
 library(tidycensus)
 library(tidytransit)
 library(tigris)
-library(gridExtra)
 library(sf)
 library(kableExtra)
 
@@ -21,8 +20,9 @@ getACSyr <- function(yearACS) {
                 geometry = TRUE,
                 output = "wide") %>%
     mutate(year = yearACS) %>%
-    mutate(MedRent = B25058_001E) %>% 
+    mutate(TotalPop = B25026_001E) %>% 
     mutate(PopDens = B25026_001E / as.numeric(st_area(geometry) / 2.59e+6)) %>% 
+    mutate(MedRent = B25058_001E) %>% 
     mutate(PctTransit = B08301_010E / B08301_001E * 100) %>% 
     select(!(B25026_001E:B08301_010M))
   
@@ -63,10 +63,10 @@ railStops <- filter_stops(metrotransit,service_id,route_id) %>%
   group_by(stop_name) %>% slice(1) %>% stops_as_sf(2812)
 railLines <- get_route_geometry(gtfs_as_sf(metrotransit), route_id, service_id)
 
-railBuffers <- rbind(
+railBuffers <- bind_rows(
   st_buffer(railStops,2640) %>% 
     mutate(Legend = "Buffer") %>% 
-    dplyr::select(Legend),
+    dplyr::select(stop_name,Legend),
   st_union(st_buffer(railStops,2640)) %>% 
     st_sf() %>% 
     mutate(Legend = "Unionized Buffer"),
@@ -133,7 +133,6 @@ plotStep2("MedRent", "Median rent","($2019)")
 plotStep2("PctTransit", "Transit mode share","(%)")
 
 # Step 3 & 4: Grouped bar plot and table
-
 allTracts.Summary <- 
   st_drop_geometry(allTracts.group) %>%
   group_by(year, TOD) %>%
@@ -161,3 +160,48 @@ allTracts.Summary %>%
            general = "Table 1.3")
 
 # Step 5: graduated symbol maps
+stationStat <- st_join(filter(railBuffers,Legend=="Buffer"),
+                       st_centroid(filter(allTracts,year==2019))) %>% 
+  st_drop_geometry() %>% 
+  group_by(stop_name) %>% 
+  summarise(Pop = sum(TotalPop, na.rm=T), Rent = median(MedRent, na.rm=T)) %>% 
+  full_join(select(railStops,stop_name,geometry),by="stop_name")
+
+ggplot() +
+  geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
+  geom_sf(data=stationStat, aes(geometry=geometry, size=Pop, color=Pop)) +
+  scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
+  guides(size=guide_legend(), color=guide_legend()) +
+  labs(title="Light rail stations by total population within 1/2 mile (2019)")
+
+ggplot() +
+  geom_sf(data=filter(allTracts.group,TOD=="TOD"), color="#666666", lwd=.1) +
+  geom_sf(data=stationStat, aes(geometry=geometry, size=Rent, color=Rent)) +
+  scale_size_binned() + scale_color_gradient(low="#0868ac",high="#bae4bc") +
+  guides(size=guide_legend(), color=guide_legend()) +
+  labs(title="Light rail stations by median rent within 1/2 mile (2019)")
+
+# Step 6: geom_line & multiple ring buffer
+allTracts.rings <-
+  st_join(st_centroid(dplyr::select(allTracts, GEOID, year)), 
+          multipleRingBuffer(onefoot, 32000, 2640)) %>%
+  st_drop_geometry() %>%
+  left_join(select(allTracts, GEOID, MedRent, year), 
+            by=c("GEOID"="GEOID", "year"="year")) %>%
+  st_sf() %>%
+  mutate(distance = distance / 5280) %>% 
+  st_drop_geometry() %>% 
+  group_by(year, distance) %>% 
+  summarise(RingRent = mean(MedRent, na.rm=T)) %>% 
+  arrange(year, distance)
+
+ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
+  geom_line() +
+  geom_point() +
+  scale_color_manual(name="Year",values = c("#bae4bc", "#0868ac")) +
+  scale_x_continuous(breaks=seq(0,6,by=1)) +
+  plotTheme() +
+  labs(title="Rent as a function of distance from light rail stations",
+       subtitle="Census tracts, Minneapolis-St. Paul, MN-WI Urbanized Area",
+       x="Radial distance from station (miles)",
+       y="Average rent ($)")
