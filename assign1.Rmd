@@ -99,12 +99,16 @@ railBuffers <- bind_rows(
   st_union(st_buffer(railStops,2640)) %>% 
     st_sf() %>% 
     mutate(Legend = "Unionized Buffer"),
+  st_union(st_buffer(railStops,1320)) %>% 
+    st_sf() %>% 
+    mutate(Legend = "Quarter-mile Buffer"),
   st_union(st_buffer(railStops,1)) %>% 
     st_sf() %>% 
     mutate(Legend = "1-foot Buffer")
 )
 
 buffer <- filter(railBuffers, Legend=="Unionized Buffer")
+quarter <- filter(railBuffers,Legend=="Quarter-mile Buffer")
 onefoot <- filter(railBuffers, Legend=="1-foot Buffer")
 ```
 
@@ -272,3 +276,23 @@ ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
 
 # Step 7: Crime and 311 data
 
+```{R}
+data311 <- read_csv("data/Public_311_2019.csv") %>% 
+  st_as_sf(coords = c('Lon', 'Lat'), crs = 4326) %>% 
+  st_transform(st_crs(allTracts))
+
+choro311 <- st_join(filter(allTracts,year==2019), data311, join = st_intersects, left=F) %>%
+  group_by(GEOID) %>% 
+  summarise(tot311 = n()) %>% 
+  mutate(dens311 = tot311 / as.numeric(st_area(geometry) / 2.59e+6))
+
+ggplot() +
+  geom_sf(data=choro311, aes(fill=q5(dens311)), color = "transparent") +
+  geom_sf(data=quarter, color = "red", fill = "transparent") +
+  coord_sf(crs=st_crs(4326),xlim=c(-93.35,-93.15),ylim=c(44.82,45.1), expand=FALSE) +
+  scale_fill_manual(values = palette5,
+                  labels = qBr(choro311, "dens311"),
+                  name = paste0("311 requests (sq. mi)\n(Quintile breaks)")) +
+  labs(title = "Density of 311 requests in Minneapolis",
+       subtitle = "Red border = 1/4 mile buffer around light rail stations")
+```
