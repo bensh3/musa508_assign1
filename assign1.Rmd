@@ -107,6 +107,8 @@ allTracts <- rbind(tracts09,tracts19)
 ## Wrangle rail stops and centroid buffers
 The Twin Cities' transit agency is Metro Transit, which operates two light rail lines: the Blue Line and Green Line. The GTFS (General Transit Feed Specification) package here is a snapshot taken by the [Transitland](https://transit.land) GTFS repository from the agency's feed, with the Blue and Green Lines designated as route 901 and 902. GTFS was wrangled using the `tidytransit` package.
 
+![Metro Transit light rail lines](data/MetroTransitLightRail.png)
+
 Four buffers were created from station point data: one half-mile buffer for each station, a unionized shapefile of the 1/2 mile buffers, a quarter-mile buffer for finer analysis, and a 1-foot buffer to utilize in the `multipleRingBuffer()` function.
 ```{r, warning = FALSE, message = FALSE}
 metrotransit <- read_gtfs("data/gtfs.zip")
