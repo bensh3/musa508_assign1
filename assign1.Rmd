@@ -28,7 +28,6 @@ library(tigris)
 library(sf)
 library(kableExtra)
 library(gt)
-library(tidygeocoder)
 
 options(scipen = 999)
 options(tigris_class = "sf")
