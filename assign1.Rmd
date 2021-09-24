@@ -483,7 +483,7 @@ ggplot() +
 ```
 Police incident data is a similar picture. Aside from the greater concentration of police incidents downtown, due to exponentially higher human activity, the light rail does not directly serve the tracts with greatest incidents of crime. This could indicate, in reverse, an equity issue where light rail was not placed in the neighborhoods with the most vulnerable and thus transit-dependent populations.
 ```{R Police Incident data}
-police <- st_read("data/Police_Incidents_2019.geojson") %>% 
+police <- st_read("https://opendata.arcgis.com/datasets/8cd15449ac344aa5a55be7840d67c52d_0.geojson") %>% 
     st_transform(st_crs(twincities)) %>% 
     st_join(twincities, join = st_within, left = FALSE) %>% 
     st_transform(st_crs(allTracts)) %>% 
