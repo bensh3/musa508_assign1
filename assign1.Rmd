@@ -246,7 +246,7 @@ plotStep2("PctTransit", "Transit mode share","(%)")
 ```
 ### Percent white map
 Lastly, the percent of residents identifying as white shows what has been known for years: the Twin Cities are becoming a hotspot for nonwhite immigration, especially taking in some of the largest shares of Somali, Hmong, and other non-white demographics in the US. Not even in the TOD tracts, even discounting the low population at the south end of the Blue Line, does this trend seem to be diminishing.
-``` {r Percent transit share map}
+``` {r Percent white map}
 plotStep2("PctWhite", "Percent white","(%)")
 ```
 
