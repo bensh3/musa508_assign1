@@ -72,7 +72,7 @@ getACSyr <- function(yearACS) {
     select(!(B25026_001E:B02001_002M))
   
   st_join(temp, twincities, join = st_within, left = FALSE) %>% 
-    st_transform('EPSG:2812')
+    st_transform(2812)
 }
 
 tracts09 <- getACSyr(2009)
@@ -305,6 +305,7 @@ allTracts.TOD.sum %>%
 
 ## Step 3 & 4 Addendum: submarket analysis
 Based on the choropleth maps seen, is highly desirable to include submarket analysis by respective line (as well as the shared corridor in Minneapolis), in order to better understand differences in indicator responses due to the divergent nature of the two lines. While the Blue Line serves a less dense corridor and is more or less a single-purpose line to the airport and Mall, the Green Line is a far more dense and diverse corridor of interest.
+
 ### Submarket map
 ``` {R submarket analysis: map}
 
@@ -453,8 +454,8 @@ ggplot(allTracts.rings, aes(x = distance,y = RingRent,color = factor(year))) +
        y = "Average rent ($)")
 ```
 
-## Step 7: 311 data for Minneapolis
-311 data was only available for Minneapolis. Police incident data was available for St. Paul, but the dataset only contained the block information as a string, and was not geocoded to a vector point. In addition, data for any given year was somehow only available for 1000 records max, even though an API key was used.
+## Step 7: 311 and Police Incident data for Minneapolis
+[311 data](https://opendata.minneapolismn.gov/datasets/public-311-2019/explore?location=26.406711%2C-39.235371%2C2.80) was only available for Minneapolis. Crime data was not available, but [police incident reports](https://opendata.minneapolismn.gov/datasets/cityoflakes::police-incidents-2019/about) were available and plotted, filtering out any case of Theft.
 
 Plotting 311 data, it's also evident that the block of most 311 requests in South Minneapolis (Uptown, Whittier, Phillips) is not one directly served by light rail. There is no obvious relation between transit access, rents, or 311 requests.
 
@@ -477,7 +478,31 @@ ggplot() +
                   labels = qBr(choro311, "dens311"),
                   name = paste0("311 requests\n(per sq. mi.)\n(Quintile breaks)")) +
   mapTheme() +
-  labs(title = "Density of 311 requests in Minneapolis",
+  labs(title = "Density of 311 requests in Minneapolis (2019)",
+       subtitle = "Red border = 1/4 mile buffer around light rail stations")
+```
+Police incident data is a similar picture. Aside from the greater concentration of police incidents downtown, due to exponentially higher human activity, the light rail does not directly serve the tracts with greatest incidents of crime. This could indicate, in reverse, an equity issue where light rail was not placed in the neighborhoods with the most vulnerable and thus transit-dependent populations.
+```{R Police Incident data}
+police <- st_read("data/Police_Incidents_2019.geojson") %>% 
+    st_transform(st_crs(twincities)) %>% 
+    st_join(twincities, join = st_within, left = FALSE) %>% 
+    st_transform(st_crs(allTracts)) %>% 
+    filter(!grepl("THEFT", description))
+
+policeChoro <- st_join(filter(allTracts,year == 2019), police, join = st_intersects, left = F) %>%
+  group_by(GEOID) %>% 
+  summarise(totIncid = n()) %>% 
+  mutate(densIncid = totIncid / as.numeric(st_area(geometry) / 2.59e+6))
+
+ggplot() +
+  geom_sf(data = policeChoro, aes(fill = q5(densIncid)), color = "transparent") + 
+  geom_sf(data = quarter, color = "red", fill = "transparent") +
+  coord_sf(crs = st_crs(4326),xlim = c(-93.36,-93.15),ylim = c(44.82,45.1), expand = FALSE) +
+  scale_fill_manual(values = palette5,
+                  labels = qBr(policeChoro, "densIncid"),
+                  name = paste0("Police incidents\n(per sq. mi.)\n(Quintile breaks)")) +
+  mapTheme() +
+  labs(title = "Density of police incidents in Minneapolis (2019)",
        subtitle = "Red border = 1/4 mile buffer around light rail stations")
 ```
 
