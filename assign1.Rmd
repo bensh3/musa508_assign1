@@ -2,9 +2,7 @@
 title: "MUSA 508 Assignment 1"
 subtitle: "Indicators for Transit-Oriented Development<br>Analysis for Minneapolis-St. Paul, MN-WI Urbanized Area"
 author:
-  - name: "Sisun Cheng"
   - name: "Benjamin She"
-  - name: "Xiaoyi Wu"
 date: "9/23/2021"
 output:
   html_document:
@@ -32,6 +30,9 @@ library(gt)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
+# Introduction
+
+
 # Wrangling data
 ## First get boundary of Minneapolis-St Paul urbanized area
 This uses the `tigris` package and filters for UA code `57628`
@@ -42,7 +43,7 @@ twincities <- urban_areas(cb=TRUE) %>%
 ```
 
 ## Then get ACS tract data for whole state and intersect by boundary
-Instead of merely displaying population, normalizing population by tract area (in square miles) will accurately visualize choropleth data
+Instead of merely displaying population, normalizing population by tract area (in square miles) will accurately visualize choropleth data.
 ```{r, results='hide', warning = FALSE, message = FALSE}
 getACSyr <- function(yearACS) {
   temp<-get_acs(geography = 'tract',
@@ -81,7 +82,7 @@ lehdwac18 <- read_csv("data/mn_wac_S000_JT00_2018.csv") %>%
   summarise(jobs=sum(C000))
 ```
 
-### like population, the choropleth should normalize jobs by square mile area
+Like population, the choropleth should normalize jobs by square mile area.
 ```{r, warning = FALSE, message = FALSE}
 tracts09 <- tracts09 %>% left_join(lehdwac08,by="GEOID") %>% 
   mutate(JobDens = jobs / as.numeric(st_area(geometry) / 2.59e+6))
@@ -94,7 +95,7 @@ allTracts <- rbind(tracts09,tracts19)
 ## Wrangle rail stops and centroid buffers
 The Twin Cities' transit agency is Metro Transit, which operates two light rail lines: the Blue Line and Green Line. The GTFS package here is a snapshot taken from the [Transitland](https://transit.land) GTFS repository, with the Blue and Green Lines as route 901 and 902.
 
-Four buffers were created from station point data: one half-mile buffer for each station, a unionized shapefile of the 1/2 mile buffers, a quarter-mile buffer for finer analysis, and a 1-foot buffer to utilize in `multipleRingBuffer()` function.
+Four buffers were created from station point data: one half-mile buffer for each station, a unionized shapefile of the 1/2 mile buffers, a quarter-mile buffer for finer analysis, and a 1-foot buffer to utilize in the `multipleRingBuffer()` function.
 ```{r, warning = FALSE, message = FALSE}
 metrotransit <- read_gtfs("data/gtfs.zip")
 
@@ -323,7 +324,7 @@ ggplot(allTracts.rings, aes(x=distance,y=RingRent,color=factor(year))) +
 ```
 
 ## Step 7: 311 data for Minneapolis
-311 data was only available for Minneapolis. Crime data exists for St. Paul but was not geocoded, and only had block address data; geocoding would take too long.
+311 data was only available for Minneapolis. Crime data exists for St. Paul but was not geocoded, and only had block addresses; geocoding would take too long.
 
 The plot shows a higher 311 requests density in the central region of Minneapolis, approximately the junction of two rail lines. However, we can hardly draw a conclusion of any relationship between TOD and the density of 311 requests from the given data.
 ```{R 311 data}
